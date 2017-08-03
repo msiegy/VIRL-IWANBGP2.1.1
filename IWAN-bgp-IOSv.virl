@@ -1,0 +1,5917 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<topology xmlns="http://www.cisco.com/VIRL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" schemaVersion="0.95" xsi:schemaLocation="http://www.cisco.com/VIRL https://raw.github.com/CiscoVIRL/schema/v0.95/virl.xsd">
+    <extensions>
+        <entry key="AutoNetkit.ipv4_loopback_subnet" type="String">192.168.0.0</entry>
+        <entry key="management_network" type="String">flat</entry>
+        <entry key="management_lxc" type="Boolean">false</entry>
+    </extensions>
+    <node name="R1-Multibranch" type="SIMPLE" subtype="IOSv" location="470,696" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!--------------------------------------------------------------------------------
+! Multi Branch Client
+! Traffic Generator
+!--------------------------------------------------------------------------------
+!
+!
+hostname Multi-Branch
+!
+no aaa new-model
+clock timezone CET 1
+!
+ip cef
+no ip domain lookup
+!
+cdp timer 5
+cdp holdtime 10
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! VRF DEFINITIONS
+!------------------------------------------------------------
+!
+vrf definition Site3
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition Site4
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition Site5
+ !
+ address-family ipv4
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface Loopback0
+ no ip address
+!
+interface Loopback3
+ description Used to Demonstrate OSPF External Routes in Topology
+ vrf forwarding Site3
+ ip address 3.3.3.3 255.255.255.0
+ shutdown
+!
+interface Loopback4
+ description Used to Demonstrate OSPF External Routes in Topology
+ vrf forwarding Site4
+ ip address 4.4.4.4 255.255.255.0
+ shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description R31
+ vrf forwarding Site3
+ ip address 10.3.3.100 255.255.255.0 secondary
+ ip address 10.3.3.101 255.255.255.0 secondary
+ ip address 10.3.3.102 255.255.255.0 secondary
+ ip address 10.3.3.103 255.255.255.0 secondary
+ ip address 10.3.3.200 255.255.255.0 secondary
+ ip address 10.3.3.201 255.255.255.0 secondary
+ ip address 10.3.3.1 255.255.255.0
+ ip ospf network point-to-point
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shut
+!
+interface GigabitEthernet0/2
+ description R41
+ vrf forwarding Site4
+ ip address 10.4.4.100 255.255.255.0 secondary
+ ip address 10.4.4.101 255.255.255.0 secondary
+ ip address 10.4.4.102 255.255.255.0 secondary
+ ip address 10.4.4.103 255.255.255.0 secondary
+ ip address 10.4.4.1 255.255.255.0
+ ip ospf network point-to-point
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shut
+!
+interface GigabitEthernet0/3
+ description R512 &amp; R52
+ vrf forwarding Site5
+ ip address 10.5.5.100 255.255.255.0 secondary
+ ip address 10.5.5.101 255.255.255.0 secondary
+ ip address 10.5.5.102 255.255.255.0 secondary
+ ip address 10.5.5.1 255.255.255.0
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shut
+!
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 4 vrf Site4
+ redistribute connected subnets
+ redistribute static subnets
+ network 10.0.0.0 0.255.255.255 area 0
+!
+router ospf 5 vrf Site5
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!--------------------------------------------------------------------
+! STATIC ROUTES
+!--------------------------------------------------------------------
+!
+ip route vrf Site3 0.0.0.0 0.0.0.0 10.3.3.31
+!
+!
+!--------------------------------------------------------------------
+! IP SLA PROBES
+!--------------------------------------------------------------------
+!
+!-----------------------------------------------------------
+! Site3 to Site4 (Spoke to spoke traffic)
+!-----------------------------------------------------------
+!
+ip sla 34
+ udp-jitter 10.4.4.103 20000 source-ip 10.3.3.103 source-port 30000 codec g729a
+ tos 184
+ vrf Site3
+ threshold 500
+ timeout 600
+ frequency 1
+ip sla schedule 34 life forever start-time now
+!
+!-----------------------------------------------------------
+! Site4 to Site3 (Spoke to spoke traffic)
+!-----------------------------------------------------------
+!
+ip sla 43
+ udp-jitter 10.3.3.103 20000 source-ip 10.4.4.103 source-port 30000 codec g729a
+ tos 184
+ vrf Site4
+ threshold 500
+ timeout 600
+ frequency 1
+!ip sla schedule 43 life forever start-time now
+!
+!
+!-----------------------------------------------------------
+! Site3 to Site1
+! 	1300 - RTP
+! 	1301 - ICMP
+! 	1302 - TCP
+!-----------------------------------------------------------
+!
+ip sla 1300
+ udp-jitter 10.1.100.10 20000 source-ip 10.3.3.100 source-port 30000 codec g729a
+ tos 184
+ vrf Site3
+ threshold 500
+ timeout 600
+ frequency 1
+ip sla schedule 1300 life forever start-time now
+!
+ip sla 1301
+ icmp-echo 10.1.101.10 source-ip 10.3.3.101
+ request-data-size 64
+ vrf Site3
+ threshold 800
+ timeout 800
+ frequency 1
+ip sla schedule 1301 life forever start-time now
+!
+!-----------------------------------------------------------
+! Site3 to 10.10.0.0/16 subnet
+! 	1300 - RTP
+! 	1301 - ICMP
+! 	1302 - TCP
+!-----------------------------------------------------------
+!
+ip sla 1302
+ tcp-connect 10.10.100.10 7000 source-ip 10.3.3.102 source-port 7000
+ tos 72
+ vrf Site3
+ threshold 800
+ timeout 800
+ frequency 5
+ip sla schedule 1302 life forever start-time now
+!
+!
+!
+!-----------------------------------------------------------
+! Site4 to Site1 (branch to hub)
+! 	1400 - RTP
+! 	1401 - ICMP
+! 	1402 - TCP
+!-----------------------------------------------------------
+!
+ip sla 1400
+ udp-jitter 10.1.100.10 20000 source-ip 10.4.4.100 source-port 30000 codec g729a
+ tos 184
+ vrf Site4
+ threshold 500
+ timeout 600
+ frequency 1
+!ip sla schedule 1400 life forever start-time now
+!
+ip sla 1401
+ icmp-echo 10.1.101.10 source-ip 10.4.4.101
+ request-data-size 64
+ vrf Site4
+ threshold 800
+ timeout 800
+ frequency 1
+!ip sla schedule 1401 life forever start-time now
+!
+!
+!-----------------------------------------------------------
+! Site4 to 10.10.0.0/16 subnet
+! 	1300 - RTP
+! 	1301 - ICMP
+! 	1302 - TCP
+!-----------------------------------------------------------
+!
+ip sla 1402
+ tcp-connect 10.10.100.20 7000 source-ip 10.4.4.102 source-port 7000
+ tos 72
+ vrf Site4
+ threshold 800
+ timeout 800
+ frequency 5
+ip sla schedule 1402 life forever start-time now
+!
+!
+!-----------------------------------------------------------
+! Site5 to Site1 (branch to hub)
+! 	1500 - RTP
+! 	1501 - ICMP
+! 	1502 - TCP
+!-----------------------------------------------------------
+!
+ip sla 1500
+ udp-jitter 10.1.100.10 20000 source-ip 10.5.5.100 source-port 30000 codec g729a
+ tos 184
+ vrf Site5
+ threshold 500
+ timeout 600
+ frequency 1
+!ip sla schedule 1501 life forever start-time now
+!
+ip sla 1501
+ icmp-echo 10.1.101.10 source-ip 10.5.5.101
+ request-data-size 64
+ vrf Site5
+ threshold 800
+ timeout 800
+ frequency 1
+!ip sla schedule 1501 life forever start-time now
+!
+ip sla 1502
+ tcp-connect 10.1.100.10 7000 source-ip 10.5.5.102 source-port 7000
+ tos 72
+ vrf Site5
+ threshold 800
+ timeout 800
+ frequency 1
+!ip sla schedule 1502 life forever start-time now
+!
+!
+!-----------------------------------------------------------
+! Site3 to Site2 (branch to transit)
+! 	2300 - RTP
+! 	2301 - ICMP
+!-----------------------------------------------------------
+!
+ip sla 2300
+ udp-jitter 10.2.100.20 20000 source-ip 10.3.3.200 source-port 30000 codec g729a
+ tos 184
+ vrf Site3
+ threshold 500
+ timeout 600
+ frequency 1
+!ip sla schedule 2300 life forever start-time now
+!
+ip sla 2301
+ icmp-echo 10.2.101.20 source-ip 10.3.3.201
+ request-data-size 64
+ vrf Site3
+ threshold 800
+ timeout 800
+ frequency 1
+!ip sla schedule 2301 life forever start-time now!
+!
+!
+!-----------------------------------------------------------
+! IP SLA Responder
+!-----------------------------------------------------------
+!
+ip sla responder
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec site3 show ip route vrf Site3
+alias exec site4 show ip route vrf Site4
+alias exec site5 show ip route vrf Site5
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec srs sh run | sec
+!
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="MPLS" type="SIMPLE" subtype="IOSv" location="406,367" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]" ipv4="192.168.0.18">
+        <extensions>
+            <entry key="config" type="String">! IOS Config generated on 2017-08-02 02:32
+! by autonetkit_0.23.5
+!
+hostname MPLS
+boot-start-marker
+boot-end-marker
+!
+vrf definition Mgmt-intf
+!
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+no aaa new-model
+!
+!
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+!
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+no service config
+enable password cisco
+ip classless
+ip subnet-zero
+no ip domain lookup
+ip domain name virl.info
+crypto key generate rsa modulus 768
+ip ssh server algorithm authentication password
+username cisco privilege 15 secret cisco
+line vty 0 4
+ transport input ssh telnet
+ exec-timeout 720 0
+ password cisco
+ login local
+line con 0
+ password cisco
+!
+no cdp run
+!
+!
+interface Loopback0
+  description Loopback
+  ip address 192.168.0.18 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description OOB Management
+  vrf forwarding Mgmt-intf
+  ! Configured on launch
+  no ip address
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description to BR11
+  ip address 10.0.0.14 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description to BR21
+  ip address 10.0.0.30 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/3
+  description to Spoke31
+  ip address 10.0.0.37 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/4
+  description to Spoke41
+  ip address 10.0.0.45 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/5
+  description to Spoke51
+  ip address 10.0.0.57 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/6
+  description to BR13
+  ip address 10.0.0.26 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+!
+!
+router ospf 1
+  network 192.168.0.18 0.0.0.0 area 0
+  log-adjacency-changes
+  passive-interface Loopback0
+  network 10.0.0.12 0.0.0.3 area 0
+  network 10.0.0.28 0.0.0.3 area 0
+  network 10.0.0.36 0.0.0.3 area 0
+  network 10.0.0.44 0.0.0.3 area 0
+  network 10.0.0.56 0.0.0.3 area 0
+  network 10.0.0.24 0.0.0.3 area 0
+!
+!
+router bgp 1
+  bgp router-id 192.168.0.18
+  no synchronization
+! ibgp
+  ! ibgp peers
+  !
+  neighbor 192.168.0.6 remote-as 1
+  neighbor 192.168.0.6 description iBGP peer BR11
+  neighbor 192.168.0.6 update-source Loopback0
+  !
+  neighbor 192.168.0.7 remote-as 1
+  neighbor 192.168.0.7 description iBGP peer BR12
+  neighbor 192.168.0.7 update-source Loopback0
+  !
+  neighbor 192.168.0.8 remote-as 1
+  neighbor 192.168.0.8 description iBGP peer BR13
+  neighbor 192.168.0.8 update-source Loopback0
+  !
+  neighbor 192.168.0.10 remote-as 1
+  neighbor 192.168.0.10 description iBGP peer BR21
+  neighbor 192.168.0.10 update-source Loopback0
+  !
+  neighbor 192.168.0.11 remote-as 1
+  neighbor 192.168.0.11 description iBGP peer BR22
+  neighbor 192.168.0.11 update-source Loopback0
+  !
+  neighbor 192.168.0.3 remote-as 1
+  neighbor 192.168.0.3 description iBGP peer CoreSwitch1
+  neighbor 192.168.0.3 update-source Loopback0
+  !
+  neighbor 192.168.0.4 remote-as 1
+  neighbor 192.168.0.4 description iBGP peer CoreSwitch2
+  neighbor 192.168.0.4 update-source Loopback0
+  !
+  neighbor 192.168.0.17 remote-as 1
+  neighbor 192.168.0.17 description iBGP peer INET
+  neighbor 192.168.0.17 update-source Loopback0
+  !
+  neighbor 192.168.0.1 remote-as 1
+  neighbor 192.168.0.1 description iBGP peer R1-Multibranch
+  neighbor 192.168.0.1 update-source Loopback0
+  !
+  neighbor 192.168.0.5 remote-as 1
+  neighbor 192.168.0.5 description iBGP peer R10
+  neighbor 192.168.0.5 update-source Loopback0
+  !
+  neighbor 192.168.0.9 remote-as 1
+  neighbor 192.168.0.9 description iBGP peer R20
+  neighbor 192.168.0.9 update-source Loopback0
+  !
+  neighbor 192.168.0.2 remote-as 1
+  neighbor 192.168.0.2 description iBGP peer SP1
+  neighbor 192.168.0.2 update-source Loopback0
+  !
+  neighbor 192.168.0.12 remote-as 1
+  neighbor 192.168.0.12 description iBGP peer Spoke31
+  neighbor 192.168.0.12 update-source Loopback0
+  !
+  neighbor 192.168.0.13 remote-as 1
+  neighbor 192.168.0.13 description iBGP peer Spoke41
+  neighbor 192.168.0.13 update-source Loopback0
+  !
+  neighbor 192.168.0.14 remote-as 1
+  neighbor 192.168.0.14 description iBGP peer Spoke51
+  neighbor 192.168.0.14 update-source Loopback0
+  !
+  neighbor 192.168.0.15 remote-as 1
+  neighbor 192.168.0.15 description iBGP peer Spoke52
+  neighbor 192.168.0.15 update-source Loopback0
+  !
+  neighbor 192.168.0.16 remote-as 1
+  neighbor 192.168.0.16 description iBGP peer switch
+  neighbor 192.168.0.16 update-source Loopback0
+!
+!
+ !
+ address-family ipv4
+  network 192.168.0.18 mask 255.255.255.255
+  neighbor 192.168.0.6 activate
+  neighbor 192.168.0.7 activate
+  neighbor 192.168.0.8 activate
+  neighbor 192.168.0.10 activate
+  neighbor 192.168.0.11 activate
+  neighbor 192.168.0.3 activate
+  neighbor 192.168.0.4 activate
+  neighbor 192.168.0.17 activate
+  neighbor 192.168.0.1 activate
+  neighbor 192.168.0.5 activate
+  neighbor 192.168.0.9 activate
+  neighbor 192.168.0.2 activate
+  neighbor 192.168.0.12 activate
+  neighbor 192.168.0.13 activate
+  neighbor 192.168.0.14 activate
+  neighbor 192.168.0.15 activate
+  neighbor 192.168.0.16 activate
+ exit-address-family
+!
+!
+!
+end</entry>
+            <entry key="AutoNetkit.mgmt_ip" type="string"></entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1" ipv4="10.0.0.14" netPrefixLenV4="30"/>
+        <interface id="1" name="GigabitEthernet0/2" ipv4="10.0.0.30" netPrefixLenV4="30"/>
+        <interface id="2" name="GigabitEthernet0/3" ipv4="10.0.0.37" netPrefixLenV4="30"/>
+        <interface id="3" name="GigabitEthernet0/4" ipv4="10.0.0.45" netPrefixLenV4="30"/>
+        <interface id="4" name="GigabitEthernet0/5" ipv4="10.0.0.57" netPrefixLenV4="30"/>
+        <interface id="5" name="GigabitEthernet0/6" ipv4="10.0.0.26" netPrefixLenV4="30"/>
+    </node>
+    <node name="INET" type="SIMPLE" subtype="IOSv" location="587,367" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]" ipv4="192.168.0.17">
+        <extensions>
+            <entry key="config" type="String">! IOS Config generated on 2017-08-02 02:32
+! by autonetkit_0.23.5
+!
+hostname INET
+boot-start-marker
+boot-end-marker
+!
+vrf definition Mgmt-intf
+!
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+no aaa new-model
+!
+!
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+!
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+no service config
+enable password cisco
+ip classless
+ip subnet-zero
+no ip domain lookup
+ip domain name virl.info
+crypto key generate rsa modulus 768
+ip ssh server algorithm authentication password
+username cisco privilege 15 secret cisco
+line vty 0 4
+ transport input ssh telnet
+ exec-timeout 720 0
+ password cisco
+ login local
+line con 0
+ password cisco
+!
+no cdp run
+!
+!
+interface Loopback0
+  description Loopback
+  ip address 192.168.0.17 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description OOB Management
+  vrf forwarding Mgmt-intf
+  ! Configured on launch
+  no ip address
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description to BR12
+  ip address 10.0.0.22 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description to BR22
+  ip address 10.0.0.34 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/3
+  description to Spoke31
+  ip address 10.0.0.41 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/4
+  description to Spoke41
+  ip address 10.0.0.49 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/5
+  description to Spoke52
+  ip address 10.0.0.61 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/6
+  description to SP1
+  ip address 10.0.0.9 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+!
+!
+router ospf 1
+  network 192.168.0.17 0.0.0.0 area 0
+  log-adjacency-changes
+  passive-interface Loopback0
+  network 10.0.0.20 0.0.0.3 area 0
+  network 10.0.0.32 0.0.0.3 area 0
+  network 10.0.0.40 0.0.0.3 area 0
+  network 10.0.0.48 0.0.0.3 area 0
+  network 10.0.0.60 0.0.0.3 area 0
+  network 10.0.0.8 0.0.0.3 area 0
+!
+!
+router bgp 1
+  bgp router-id 192.168.0.17
+  no synchronization
+! ibgp
+  ! ibgp peers
+  !
+  neighbor 192.168.0.6 remote-as 1
+  neighbor 192.168.0.6 description iBGP peer BR11
+  neighbor 192.168.0.6 update-source Loopback0
+  !
+  neighbor 192.168.0.7 remote-as 1
+  neighbor 192.168.0.7 description iBGP peer BR12
+  neighbor 192.168.0.7 update-source Loopback0
+  !
+  neighbor 192.168.0.8 remote-as 1
+  neighbor 192.168.0.8 description iBGP peer BR13
+  neighbor 192.168.0.8 update-source Loopback0
+  !
+  neighbor 192.168.0.10 remote-as 1
+  neighbor 192.168.0.10 description iBGP peer BR21
+  neighbor 192.168.0.10 update-source Loopback0
+  !
+  neighbor 192.168.0.11 remote-as 1
+  neighbor 192.168.0.11 description iBGP peer BR22
+  neighbor 192.168.0.11 update-source Loopback0
+  !
+  neighbor 192.168.0.3 remote-as 1
+  neighbor 192.168.0.3 description iBGP peer CoreSwitch1
+  neighbor 192.168.0.3 update-source Loopback0
+  !
+  neighbor 192.168.0.4 remote-as 1
+  neighbor 192.168.0.4 description iBGP peer CoreSwitch2
+  neighbor 192.168.0.4 update-source Loopback0
+  !
+  neighbor 192.168.0.18 remote-as 1
+  neighbor 192.168.0.18 description iBGP peer MPLS
+  neighbor 192.168.0.18 update-source Loopback0
+  !
+  neighbor 192.168.0.1 remote-as 1
+  neighbor 192.168.0.1 description iBGP peer R1-Multibranch
+  neighbor 192.168.0.1 update-source Loopback0
+  !
+  neighbor 192.168.0.5 remote-as 1
+  neighbor 192.168.0.5 description iBGP peer R10
+  neighbor 192.168.0.5 update-source Loopback0
+  !
+  neighbor 192.168.0.9 remote-as 1
+  neighbor 192.168.0.9 description iBGP peer R20
+  neighbor 192.168.0.9 update-source Loopback0
+  !
+  neighbor 192.168.0.2 remote-as 1
+  neighbor 192.168.0.2 description iBGP peer SP1
+  neighbor 192.168.0.2 update-source Loopback0
+  !
+  neighbor 192.168.0.12 remote-as 1
+  neighbor 192.168.0.12 description iBGP peer Spoke31
+  neighbor 192.168.0.12 update-source Loopback0
+  !
+  neighbor 192.168.0.13 remote-as 1
+  neighbor 192.168.0.13 description iBGP peer Spoke41
+  neighbor 192.168.0.13 update-source Loopback0
+  !
+  neighbor 192.168.0.14 remote-as 1
+  neighbor 192.168.0.14 description iBGP peer Spoke51
+  neighbor 192.168.0.14 update-source Loopback0
+  !
+  neighbor 192.168.0.15 remote-as 1
+  neighbor 192.168.0.15 description iBGP peer Spoke52
+  neighbor 192.168.0.15 update-source Loopback0
+  !
+  neighbor 192.168.0.16 remote-as 1
+  neighbor 192.168.0.16 description iBGP peer switch
+  neighbor 192.168.0.16 update-source Loopback0
+!
+!
+ !
+ address-family ipv4
+  network 192.168.0.17 mask 255.255.255.255
+  neighbor 192.168.0.6 activate
+  neighbor 192.168.0.7 activate
+  neighbor 192.168.0.8 activate
+  neighbor 192.168.0.10 activate
+  neighbor 192.168.0.11 activate
+  neighbor 192.168.0.3 activate
+  neighbor 192.168.0.4 activate
+  neighbor 192.168.0.18 activate
+  neighbor 192.168.0.1 activate
+  neighbor 192.168.0.5 activate
+  neighbor 192.168.0.9 activate
+  neighbor 192.168.0.2 activate
+  neighbor 192.168.0.12 activate
+  neighbor 192.168.0.13 activate
+  neighbor 192.168.0.14 activate
+  neighbor 192.168.0.15 activate
+  neighbor 192.168.0.16 activate
+ exit-address-family
+!
+!
+!
+end</entry>
+            <entry key="AutoNetkit.mgmt_ip" type="string"></entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1" ipv4="10.0.0.22" netPrefixLenV4="30"/>
+        <interface id="1" name="GigabitEthernet0/2" ipv4="10.0.0.34" netPrefixLenV4="30"/>
+        <interface id="2" name="GigabitEthernet0/3" ipv4="10.0.0.41" netPrefixLenV4="30"/>
+        <interface id="3" name="GigabitEthernet0/4" ipv4="10.0.0.49" netPrefixLenV4="30"/>
+        <interface id="4" name="GigabitEthernet0/5" ipv4="10.0.0.61" netPrefixLenV4="30"/>
+        <interface id="5" name="GigabitEthernet0/6" ipv4="10.0.0.9" netPrefixLenV4="30"/>
+    </node>
+    <node name="switch" type="SIMPLE" subtype="IOSv" location="678,610" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]" ipv4="192.168.0.16">
+        <extensions>
+            <entry key="config" type="String">! IOS Config generated on 2017-08-02 02:32
+! by autonetkit_0.23.5
+!
+hostname switch
+boot-start-marker
+boot-end-marker
+!
+vrf definition Mgmt-intf
+!
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+no aaa new-model
+!
+!
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+!
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+no service config
+enable password cisco
+ip classless
+ip subnet-zero
+no ip domain lookup
+ip domain name virl.info
+crypto key generate rsa modulus 768
+ip ssh server algorithm authentication password
+username cisco privilege 15 secret cisco
+line vty 0 4
+ transport input ssh telnet
+ exec-timeout 720 0
+ password cisco
+ login local
+line con 0
+ password cisco
+!
+no cdp run
+!
+!
+interface Loopback0
+  description Loopback
+  ip address 192.168.0.16 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description OOB Management
+  vrf forwarding Mgmt-intf
+  ! Configured on launch
+  no ip address
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description to Spoke51
+  ip address 10.0.0.54 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/2
+  description to Spoke52
+  ip address 10.0.0.66 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/3
+  description to R1-Multibranch
+  ip address 10.0.0.6 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+!
+!
+router ospf 1
+  network 192.168.0.16 0.0.0.0 area 0
+  log-adjacency-changes
+  passive-interface Loopback0
+  network 10.0.0.52 0.0.0.3 area 0
+  network 10.0.0.64 0.0.0.3 area 0
+  network 10.0.0.4 0.0.0.3 area 0
+!
+!
+router bgp 1
+  bgp router-id 192.168.0.16
+  no synchronization
+! ibgp
+  ! ibgp peers
+  !
+  neighbor 192.168.0.6 remote-as 1
+  neighbor 192.168.0.6 description iBGP peer BR11
+  neighbor 192.168.0.6 update-source Loopback0
+  !
+  neighbor 192.168.0.7 remote-as 1
+  neighbor 192.168.0.7 description iBGP peer BR12
+  neighbor 192.168.0.7 update-source Loopback0
+  !
+  neighbor 192.168.0.8 remote-as 1
+  neighbor 192.168.0.8 description iBGP peer BR13
+  neighbor 192.168.0.8 update-source Loopback0
+  !
+  neighbor 192.168.0.10 remote-as 1
+  neighbor 192.168.0.10 description iBGP peer BR21
+  neighbor 192.168.0.10 update-source Loopback0
+  !
+  neighbor 192.168.0.11 remote-as 1
+  neighbor 192.168.0.11 description iBGP peer BR22
+  neighbor 192.168.0.11 update-source Loopback0
+  !
+  neighbor 192.168.0.3 remote-as 1
+  neighbor 192.168.0.3 description iBGP peer CoreSwitch1
+  neighbor 192.168.0.3 update-source Loopback0
+  !
+  neighbor 192.168.0.4 remote-as 1
+  neighbor 192.168.0.4 description iBGP peer CoreSwitch2
+  neighbor 192.168.0.4 update-source Loopback0
+  !
+  neighbor 192.168.0.17 remote-as 1
+  neighbor 192.168.0.17 description iBGP peer INET
+  neighbor 192.168.0.17 update-source Loopback0
+  !
+  neighbor 192.168.0.18 remote-as 1
+  neighbor 192.168.0.18 description iBGP peer MPLS
+  neighbor 192.168.0.18 update-source Loopback0
+  !
+  neighbor 192.168.0.1 remote-as 1
+  neighbor 192.168.0.1 description iBGP peer R1-Multibranch
+  neighbor 192.168.0.1 update-source Loopback0
+  !
+  neighbor 192.168.0.5 remote-as 1
+  neighbor 192.168.0.5 description iBGP peer R10
+  neighbor 192.168.0.5 update-source Loopback0
+  !
+  neighbor 192.168.0.9 remote-as 1
+  neighbor 192.168.0.9 description iBGP peer R20
+  neighbor 192.168.0.9 update-source Loopback0
+  !
+  neighbor 192.168.0.2 remote-as 1
+  neighbor 192.168.0.2 description iBGP peer SP1
+  neighbor 192.168.0.2 update-source Loopback0
+  !
+  neighbor 192.168.0.12 remote-as 1
+  neighbor 192.168.0.12 description iBGP peer Spoke31
+  neighbor 192.168.0.12 update-source Loopback0
+  !
+  neighbor 192.168.0.13 remote-as 1
+  neighbor 192.168.0.13 description iBGP peer Spoke41
+  neighbor 192.168.0.13 update-source Loopback0
+  !
+  neighbor 192.168.0.14 remote-as 1
+  neighbor 192.168.0.14 description iBGP peer Spoke51
+  neighbor 192.168.0.14 update-source Loopback0
+  !
+  neighbor 192.168.0.15 remote-as 1
+  neighbor 192.168.0.15 description iBGP peer Spoke52
+  neighbor 192.168.0.15 update-source Loopback0
+!
+!
+ !
+ address-family ipv4
+  network 192.168.0.16 mask 255.255.255.255
+  neighbor 192.168.0.6 activate
+  neighbor 192.168.0.7 activate
+  neighbor 192.168.0.8 activate
+  neighbor 192.168.0.10 activate
+  neighbor 192.168.0.11 activate
+  neighbor 192.168.0.3 activate
+  neighbor 192.168.0.4 activate
+  neighbor 192.168.0.17 activate
+  neighbor 192.168.0.18 activate
+  neighbor 192.168.0.1 activate
+  neighbor 192.168.0.5 activate
+  neighbor 192.168.0.9 activate
+  neighbor 192.168.0.2 activate
+  neighbor 192.168.0.12 activate
+  neighbor 192.168.0.13 activate
+  neighbor 192.168.0.14 activate
+  neighbor 192.168.0.15 activate
+ exit-address-family
+!
+!
+!
+end</entry>
+            <entry key="AutoNetkit.mgmt_ip" type="string"></entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1" ipv4="10.0.0.54" netPrefixLenV4="30"/>
+        <interface id="1" name="GigabitEthernet0/2" ipv4="10.0.0.66" netPrefixLenV4="30"/>
+        <interface id="2" name="GigabitEthernet0/3" ipv4="10.0.0.6" netPrefixLenV4="30"/>
+    </node>
+    <node name="BR11" type="SIMPLE" subtype="IOSv" location="244,214" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE1
+! R11 - BR on MPLS
+!------------------------------------------------------------
+!
+hostname R11-DC1
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.1.0.10
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! KEYRING 
+! Use pre-share key here
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-1
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key c1sco123
+ !
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-MPLS
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! LOOPBACK
+!--------------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.1.0.11 255.255.255.255
+!
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 1000
+ ip address 192.168.100.11 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp shortcut
+ ip nhrp redirect
+ ip tcp adjust-mss 1360
+ load-interval 30
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ domain IWAN path MPLS path-id 1
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.11.1 255.255.255.252
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-Crosslink R12
+ ip address 10.1.12.11 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site-LAN Core
+ ip address 10.1.111.11 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! IP route to build DMVPN Tunnel
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.11.2
+!
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.1.0.11
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ passive-interface default
+ no passive-interface GigabitEthernet0/2
+ no passive-interface GigabitEthernet0/3
+ no passive-interface GigabitEthernet0/4
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! OBJECT TRACKING
+! Track Core Switch loopback address
+! Static route based on Object Tracking
+!--------------------------------------------------------------------
+!
+track 1 ip route 10.1.0.100 255.255.255.255 reachability
+!
+ip route 10.1.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.10.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.0.0.0 255.0.0.0 Null0 254
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.1.0.11
+ bgp log-neighbor-changes
+ bgp listen range 192.168.100.0/24 peer-group MPLS1-SPOKES
+ neighbor MPLS1-SPOKES peer-group
+ neighbor MPLS1-SPOKES remote-as 10
+ neighbor MPLS1-SPOKES timers 20 60
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 0.0.0.0
+  network 10.1.0.0 mask 255.255.0.0
+  network 10.10.0.0 mask 255.255.0.0
+  network 10.1.0.10 mask 255.255.255.255
+  network 10.0.0.0
+  neighbor MPLS1-SPOKES activate
+  neighbor MPLS1-SPOKES send-community
+  neighbor MPLS1-SPOKES next-hop-self
+  neighbor MPLS1-SPOKES route-reflector-client
+  neighbor MPLS1-SPOKES weight 50000
+  neighbor MPLS1-SPOKES soft-reconfiguration inbound
+  neighbor MPLS1-SPOKES route-map MPLS1-IN in
+  neighbor MPLS1-SPOKES route-map MPLS1-OUT out
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! BGP ROUTE MAP
+!------------------------------------------------------------
+!
+ip bgp-community new-format
+!
+ip community-list standard POP1-SPOKES permit 10:10
+ip community-list standard POP2-SPOKES permit 10:20
+!
+ip prefix-list DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+!
+ip prefix-list ENTERPRISE-PREFIX seq 10 permit 10.0.0.0/8
+!
+ip prefix-list LOCALDC-PREFIX seq 10 permit 10.1.0.0/16
+ip prefix-list LOCALDC-PREFIX seq 20 permit 10.10.0.0/16
+!
+ip prefix-list LOCALMCLOOPBACK seq 10 permit 10.1.0.10/32
+!
+ip prefix-list TUNNEL-DMVPN seq 10 permit 192.100.0.0/16
+ip prefix-list TUNNEL-DMVPN seq 20 permit 192.200.0.0/16
+!
+!
+route-map MPLS1-IN deny 10
+ description All Blocked Prefixes to come IN on BGP
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK TUNNEL-DMVPN
+!
+route-map MPLS1-IN permit 1000
+ description Allow Everything Else
+!
+!
+route-map MPLS1-OUT permit 10
+ description All Allowed Prefixes to Go OUT on BGP to Spokes
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK
+ set local-preference 100000
+ set community 10:100
+!
+!
+!
+!------------------------------------------------------------
+! BGP to OSPF REDISTRIBUTION ROUTE-MAP
+!------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description This Route-Map Entry is Solution Testbed Specific
+ match community POP2-SPOKES
+ set metric 2000
+ set metric-type type-1
+!
+route-map REDIST-BGP-TO-OSPF deny 20
+ description Block Null routes to be distributed from BGP to OSPF
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX
+!
+route-map REDIST-BGP-TO-OSPF permit 1000
+ set metric 1000
+ set metric-type type-1
+!
+!
+
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+        <interface id="3" name="GigabitEthernet0/4"/>
+    </node>
+    <node name="CoreSwitch1" type="SIMPLE" subtype="IOSv" location="303,115" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!---------------------------------------------
+! SITE1
+! Core Switch
+!---------------------------------------------
+! 
+hostname CoreSwitch1
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!--------------------------------------------------------------------
+! FLEXIBLE NETFLOW 
+!--------------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.1.0.100 255.255.255.255
+!
+!
+!------------------------------------------------------------
+! LOOPBACKS IP SLA
+!------------------------------------------------------------
+!
+interface Loopback100
+ description -- Used for ip sla RTP --
+ ip address 10.1.100.10 255.255.255.255
+!
+interface Loopback101
+ description -- Used for ip sla ICMP --
+ ip address 10.1.101.10 255.255.255.255
+!
+interface Loopback102
+ description -- Used for ip sla TCP --
+ ip address 10.10.100.10 255.255.255.255
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description R11
+ ip address 10.1.111.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description R12
+ ip address 10.1.112.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Core-DC2
+ ip address 10.10.20.100 255.255.255.0
+ ip ospf network point-to-point
+ ip ospf cost 1000
+ delay 1
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/4
+ description R10
+ ip address 10.1.110.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/5
+ description R13
+ ip address 10.1.113.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! OSPF 
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.1.0.100
+ network 10.0.0.0 0.255.255.255 area 0
+ default-information originate
+!
+!
+ip route 0.0.0.0 0.0.0.0 null0
+!
+!
+!
+!--------------------------------------------------------------------
+! IP SLA
+!--------------------------------------------------------------------
+!
+ip sla responder
+ip sla responder tcp-connect ipaddress 10.10.100.10 port 7000
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!------------------------------------------------------------
+! ALIAS
+!------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+        <interface id="3" name="GigabitEthernet0/4"/>
+        <interface id="4" name="GigabitEthernet0/5"/>
+    </node>
+    <node name="BR12" type="SIMPLE" subtype="IOSv" location="401,216" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!--------------------------------------------------------------------------------
+! SITE1
+! R12 - BR on INET
+!--------------------------------------------------------------------------------
+!
+hostname R12-DC1
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition INET1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.1.0.10
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-INET
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO123
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-INET
+ match fvrf INET1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-INET
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-INET
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-INET
+!
+!!
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.1.0.12 255.255.255.255
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel200
+ description DMVPN-Internet
+ bandwidth 1000
+ ip address 192.168.200.12 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO2
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 200
+ ip nhrp holdtime 600
+ ip nhrp shortcut
+ ip nhrp redirect
+ ip tcp adjust-mss 1360
+ load-interval 30
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 200
+ tunnel vrf INET1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-INET
+ domain IWAN path INET path-id 2
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description INET1-TRANSPORT
+ vrf forwarding INET1
+ ip address 100.64.12.1 255.255.255.252
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-Crosslink
+ ip address 10.1.12.12 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site-LAN
+ ip address 10.1.112.12 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! IP route to build DMVPN Tunnel200
+!--------------------------------------------------------------------
+!
+ip route vrf INET1 0.0.0.0 0.0.0.0 100.64.12.2
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.1.0.12
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ passive-interface default
+ no passive-interface GigabitEthernet0/2
+ no passive-interface GigabitEthernet0/3
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.1.0.12
+ bgp log-neighbor-changes
+ bgp listen range 192.168.200.0/24 peer-group INET1-SPOKES
+ neighbor INET1-SPOKES peer-group
+ neighbor INET1-SPOKES remote-as 10
+ neighbor INET1-SPOKES timers 20 60
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 0.0.0.0
+  network 10.1.0.0 mask 255.255.0.0
+  network 10.10.0.0 mask 255.255.0.0
+  network 10.1.0.10 mask 255.255.255.255
+  network 10.0.0.0
+  neighbor INET1-SPOKES activate
+  neighbor INET1-SPOKES send-community
+  neighbor INET1-SPOKES next-hop-self
+  neighbor INET1-SPOKES route-reflector-client
+  neighbor INET1-SPOKES weight 50000
+  neighbor INET1-SPOKES soft-reconfiguration inbound
+  neighbor INET1-SPOKES route-map INET1-IN in
+  neighbor INET1-SPOKES route-map INET1-OUT out
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+!
+!--------------------------------------------------------------------
+! OBJECT TRACKING
+! Track Core Switch loopback address
+! Static route based on Object Tracking
+!--------------------------------------------------------------------
+!
+track 1 ip route 10.1.0.100 255.255.255.255 reachability
+!
+ip route 10.1.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.10.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.0.0.0 255.0.0.0 Null0 254
+!
+!
+!
+!------------------------------------------------------------
+! BGP ROUTE MAP
+!------------------------------------------------------------
+!
+ip bgp-community new-format
+!
+ip community-list standard POP1-SPOKES permit 10:10
+ip community-list standard POP2-SPOKES permit 10:20
+!
+!
+ip prefix-list DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+!
+ip prefix-list ENTERPRISE-PREFIX seq 10 permit 10.0.0.0/8
+!
+ip prefix-list LOCALDC-PREFIX seq 10 permit 10.1.0.0/16
+ip prefix-list LOCALDC-PREFIX seq 20 permit 10.10.0.0/16
+!
+ip prefix-list LOCALMCLOOPBACK seq 10 permit 10.1.0.10/32
+!
+ip prefix-list TUNNEL-DMVPN seq 10 permit 192.100.0.0/16
+ip prefix-list TUNNEL-DMVPN seq 20 permit 192.200.0.0/16
+!
+!
+route-map INET1-IN deny 10
+ description All Blocked Prefixes to come IN on BGP
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK TUNNEL-DMVPN
+!
+route-map INET1-IN permit 1000
+ description Allow Everything Else
+!
+!
+route-map INET1-OUT permit 10
+ description All Allowed Prefixes to Go OUT on BGP to Spokes
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK
+ set local-preference 20000
+ set community 10:200
+!
+!
+!
+!------------------------------------------------------------
+! BGP to OSPF REDISTRIBUTION ROUTE-MAP
+!------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description This Route-Map Entry is Solution Testbed Specific
+ match community POP2-SPOKES
+ set metric 2200
+ set metric-type type-1
+!
+route-map REDIST-BGP-TO-OSPF deny 20
+ description Block Null routes to be distributed from BGP to OSPF
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX
+!
+route-map REDIST-BGP-TO-OSPF permit 1000
+ set metric 1200
+ set metric-type type-1
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="CoreSwitch2" type="SIMPLE" subtype="IOSv" location="650,117" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE2
+! Core Switch
+!------------------------------------------------------------
+!
+hostname CoreSwitch2
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!--------------------------------------------------------------------
+! LOOPBACK
+!--------------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.2.0.100 255.255.255.255
+!
+!
+!------------------------------------------------------------
+! LOOPBACKS IP SLA
+!------------------------------------------------------------
+!
+interface Loopback100
+ description -- Used for ip sla RTP --
+ ip address 10.2.100.20 255.255.255.255
+!
+interface Loopback101
+ description -- Used for ip sla ICMP --
+ ip address 10.2.101.20 255.255.255.255
+!
+interface Loopback102
+ description -- Used for ip sla TCP --
+ ip address 10.10.100.20 255.255.255.255
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!------------------------------------------------------------
+! INTERFACES
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description R21
+ ip address 10.2.221.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description R22
+ ip address 10.2.222.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Core-DC1
+ ip address 10.10.20.200 255.255.255.0
+ ip ospf network point-to-point
+ ip ospf cost 1000
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+interface GigabitEthernet0/4
+ description R20
+ ip address 10.2.220.100 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+!
+!
+!------------------------------------------------------------
+! OSPF
+!------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.2.0.100
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! IP SLA
+!--------------------------------------------------------------------
+!
+ip sla responder
+ip sla responder tcp-connect ipaddress 10.10.100.20 port 7000
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!
+!------------------------------------------------------------
+! ALIAS
+!------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ privilege level 15
+ password cisco
+ login
+ transport input all
+!
+!
+!
+end
+</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+        <interface id="3" name="GigabitEthernet0/4"/>
+    </node>
+    <node name="BR21" type="SIMPLE" subtype="IOSv" location="572,214" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE2
+! R21 - BR on MPLS
+!------------------------------------------------------------
+!
+hostname R21-DC2
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.2.0.20
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-MPLS
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!!
+!
+!
+!--------------------------------------------------------------------
+! LOOPBACK
+!--------------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.2.0.21 255.255.255.255
+!
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 1000000
+ ip address 192.168.100.21 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip nhrp authentication CISCO
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp shortcut
+ ip nhrp redirect
+ ip tcp adjust-mss 1360
+ load-interval 30
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ domain IWAN path MPLS path-id 1
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.21.1 255.255.255.252
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-Crosslink R22
+ ip address 10.2.12.21 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site-LAN Core
+ bandwidth 1000000
+ ip address 10.2.221.21 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! IP route to build DMVPN Tunnel
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.21.2
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.2.0.21
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ passive-interface default
+ no passive-interface GigabitEthernet0/2
+ no passive-interface GigabitEthernet0/3
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! OBJECT TRACKING
+! Track Core Switch loopback address
+! Static route based on Object Tracking
+!--------------------------------------------------------------------
+!
+track 1 ip route 10.2.0.100 255.255.255.255 reachability
+!
+ip route 10.2.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.10.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.0.0.0 255.0.0.0 Null0 254
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.2.0.21
+ bgp log-neighbor-changes
+ bgp listen range 192.168.100.0/24 peer-group MPLS1-SPOKES
+ neighbor MPLS1-SPOKES peer-group
+ neighbor MPLS1-SPOKES remote-as 10
+ neighbor MPLS1-SPOKES timers 20 60
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 0.0.0.0
+  network 10.2.0.0 mask 255.255.0.0
+  network 10.10.0.0 mask 255.255.0.0
+  network 10.0.0.0
+  network 10.2.0.20 mask 255.255.255.255
+  neighbor MPLS1-SPOKES activate
+  neighbor MPLS1-SPOKES send-community
+  neighbor MPLS1-SPOKES next-hop-self
+  neighbor MPLS1-SPOKES route-reflector-client
+  neighbor MPLS1-SPOKES weight 50000
+  neighbor MPLS1-SPOKES soft-reconfiguration inbound
+  neighbor MPLS1-SPOKES route-map MPLS1-IN in
+  neighbor MPLS1-SPOKES route-map MPLS1-OUT out
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+!------------------------------------------------------------
+! BGP ROUTE MAP
+!------------------------------------------------------------
+!
+ip bgp-community new-format
+!
+ip community-list standard POP1-SPOKES permit 10:10
+ip community-list standard POP2-SPOKES permit 10:20
+!
+ip prefix-list DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+!
+ip prefix-list ENTERPRISE-PREFIX seq 10 permit 10.0.0.0/8
+!
+ip prefix-list LOCALDC-PREFIX seq 10 permit 10.2.0.0/16
+ip prefix-list LOCALDC-PREFIX seq 20 permit 10.10.0.0/16
+!
+ip prefix-list LOCALMCLOOPBACK seq 10 permit 10.2.0.20/32
+!
+ip prefix-list TUNNEL-DMVPN seq 10 permit 192.100.0.0/16
+ip prefix-list TUNNEL-DMVPN seq 20 permit 192.200.0.0/16
+!
+!
+route-map MPLS1-IN deny 10
+ description All Blocked Prefixes to come IN on BGP
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK TUNNEL-DMVPN
+!
+route-map MPLS1-IN permit 1000
+ description Allow Everything Else
+!
+!
+route-map MPLS1-OUT permit 10
+ description All Allowed Prefixes to Go OUT on BGP to Spokes
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK
+ set local-preference 3000
+ set community 10:101
+!
+!
+!
+!------------------------------------------------------------
+! BGP to OSPF REDISTRIBUTION ROUTE-MAP
+!------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description This Route-Map Entry is Solution Testbed Specific
+ match community POP1-SPOKES
+ set metric 2000
+ set metric-type type-1
+!
+route-map REDIST-BGP-TO-OSPF deny 20
+ description Block Null routes to be distributed from BGP to OSPF
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX
+!
+route-map REDIST-BGP-TO-OSPF permit 1000
+ set metric 1000
+ set metric-type type-1
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+!
+end
+</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="BR22" type="SIMPLE" subtype="IOSv" location="739,215" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE2
+! R22 - BR on INET
+!------------------------------------------------------------
+!
+hostname R22-DC2
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition INET1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.2.0.20
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-INET
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO123
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-INET
+ match fvrf INET1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-INET
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-INET
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-INET
+!
+!
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.2.0.22 255.255.255.0
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel200
+ description DMVPN-Internet
+ bandwidth 1000000
+ ip address 192.168.200.22 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip nhrp authentication CISCO2
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 200
+ ip nhrp holdtime 600
+ ip nhrp shortcut
+ ip nhrp redirect
+ ip tcp adjust-mss 1360
+ load-interval 30
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 200
+ tunnel vrf INET1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-INET
+ domain IWAN path INET path-id 2
+!
+!
+!
+
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no ip address
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description INET1-TRANSPORT
+ vrf forwarding INET1
+ ip address 100.64.22.1 255.255.255.252
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-Crosslink R21
+ ip address 10.2.12.22 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site-LAN Core
+ ip address 10.2.222.22 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ no shutdown
+!
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! IP route to build DMVPN Tunnel
+--------------------------------------------------------------------
+!
+ip route vrf INET1 0.0.0.0 0.0.0.0 100.64.22.2
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.2.0.22
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ passive-interface default
+ no passive-interface GigabitEthernet0/2
+ no passive-interface GigabitEthernet0/3
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! OBJECT TRACKING
+! Track Core Switch loopback address
+! Static route based on Object Tracking
+!--------------------------------------------------------------------
+!
+track 1 ip route 10.2.0.100 255.255.255.255 reachability
+!
+ip route 10.2.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.10.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.0.0.0 255.0.0.0 Null0 254
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.2.0.22
+ bgp log-neighbor-changes
+ bgp listen range 192.168.200.0/24 peer-group INET1-SPOKES
+ neighbor INET1-SPOKES peer-group
+ neighbor INET1-SPOKES remote-as 10
+ neighbor INET1-SPOKES timers 20 60
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 0.0.0.0
+  network 10.2.0.0 mask 255.255.0.0
+  network 10.10.0.0 mask 255.255.0.0
+  network 10.0.0.0
+  network 10.2.0.20 mask 255.255.255.255
+  neighbor INET1-SPOKES activate
+  neighbor INET1-SPOKES send-community
+  neighbor INET1-SPOKES next-hop-self
+  neighbor INET1-SPOKES route-reflector-client
+  neighbor INET1-SPOKES weight 50000
+  neighbor INET1-SPOKES soft-reconfiguration inbound
+  neighbor INET1-SPOKES route-map INET1-IN in
+  neighbor INET1-SPOKES route-map INET1-OUT out
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+!------------------------------------------------------------
+! BGP ROUTE MAP
+!------------------------------------------------------------
+!
+ip bgp-community new-format
+!
+ip community-list standard POP1-SPOKES permit 10:10
+ip community-list standard POP2-SPOKES permit 10:20
+!
+!
+ip prefix-list DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+!
+ip prefix-list ENTERPRISE-PREFIX seq 10 permit 10.0.0.0/8
+!
+ip prefix-list LOCALDC-PREFIX seq 10 permit 10.2.0.0/16
+ip prefix-list LOCALDC-PREFIX seq 20 permit 10.10.0.0/16
+!
+ip prefix-list LOCALMCLOOPBACK seq 10 permit 10.2.0.20/32
+!
+ip prefix-list TUNNEL-DMVPN seq 10 permit 192.100.0.0/16
+ip prefix-list TUNNEL-DMVPN seq 20 permit 192.200.0.0/16
+!
+!
+route-map INET1-IN deny 10
+ description All Blocked Prefixes to come IN on BGP
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK TUNNEL-DMVPN
+!
+route-map INET1-IN permit 1000
+ description Allow Everything Else
+!
+route-map INET1-OUT permit 10
+ description All Allowed Prefixes to Go OUT on BGP to Spokes
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK
+ set local-preference 400
+ set community 10:201
+!
+!
+!
+!------------------------------------------------------------
+! BGP to OSPF REDISTRIBUTION ROUTE-MAP
+!------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description This Route-Map Entry is Solution Testbed Specific
+ match community POP1-SPOKES
+ set metric 2200
+ set metric-type type-1
+!
+route-map REDIST-BGP-TO-OSPF deny 20
+ description Block Null routes to be distributed from BGP to OSPF
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX
+!
+route-map REDIST-BGP-TO-OSPF permit 1000
+ set metric 1200
+ set metric-type type-1
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master 
+alias exec shmtc show domain IWAN master traffic-classes 
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id:  
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+!
+end
+</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="Spoke51" type="SIMPLE" subtype="IOSv" location="624,550" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE5
+! DUAL CPE BRANCH
+! Multiple IWAN Router Sites (OSPF)
+! MC/BR
+!------------------------------------------------------------
+!
+hostname R51-Site5-Spoke
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master local
+  master branch
+   source-interface Loopback0
+   hub 10.1.0.10
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-MPLS
+ dpd 40 5 on-demand
+!
+!
+!crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!
+!
+!
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.5.0.51 255.255.255.255
+ ip ospf 1 area 0
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNELS
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 400
+ ip address 192.168.100.51 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.100.11 nbma 172.16.11.1 multicast
+ ip nhrp nhs 192.168.100.13 nbma 172.16.13.1 multicast
+ ip nhrp nhs 192.168.100.21 nbma 172.16.21.1 multicast
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ if-state nhrp
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+!
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!------------------------------------------------------------
+! INTERFACES
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.51.1 255.255.255.252
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description R52
+ ip address 10.5.12.51 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site5-Local-LAN
+ ip address 10.5.5.51 255.255.255.0
+ ip ospf 1 area 0
+ ip ospf cost 1000
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! IP ROUTE TO SETUP TUNNELS
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.51.2
+!
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ network 10.0.0.0 0.255.255.255 area 0
+ default-information originate
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.5.0.51
+ bgp log-neighbor-changes
+ neighbor MPLS-HUB peer-group
+ neighbor MPLS-HUB remote-as 10
+ neighbor MPLS-HUB timers 20 60
+ neighbor 192.168.100.11 peer-group MPLS-HUB
+ neighbor 192.168.100.13 peer-group MPLS-HUB
+ neighbor 192.168.100.21 peer-group MPLS-HUB
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  redistribute ospf 1 route-map REDIST-OSPF-TO-BGP
+  neighbor MPLS-HUB send-community
+  neighbor MPLS-HUB next-hop-self all
+  neighbor MPLS-HUB weight 50000
+  neighbor MPLS-HUB soft-reconfiguration inbound
+  neighbor 192.168.100.11 activate
+  neighbor 192.168.100.13 activate
+  neighbor 192.168.100.21 activate
+  distance bgp 201 89 89
+ exit-address-family
+!
+ip bgp-community new-format
+!
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description Set a route tag to identify routes redistributed from BGP
+ set tag 1
+!
+!
+route-map REDIST-OSPF-TO-BGP deny 10
+ description Block all routes redistributed from BGP
+ match tag 1
+!
+route-map REDIST-OSPF-TO-BGP permit 20
+ description Redistribute all other traffic
+ match route-type internal
+ match route-type external type-1
+ match route-type external type-2
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="Spoke52" type="SIMPLE" subtype="IOSv" location="729,551" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE5
+! DUAL CPE BRANCH
+! Multiple IWAN Router Sites (OSPF)
+! BR
+!------------------------------------------------------------
+!
+hostname R52-Site5-Spoke
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition INET1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.5.0.51
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-INET
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO123
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-INET
+ match fvrf INET1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-INET
+ dpd 40 5 on-demand
+!
+!
+!crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-INET
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-INET
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.5.0.52 255.255.255.255
+ ip ospf 1 area 0
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel200
+ description DMVPN-INET
+ bandwidth 400
+ ip address 192.168.200.52 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO2
+ ip nhrp network-id 200
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.200.12 nbma 100.64.12.1 multicast
+ ip nhrp nhs 192.168.200.22 nbma 100.64.22.1 multicast
+ ip nhrp registration no-unique
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ no nhrp route-watch
+ if-state nhrp
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 200
+ tunnel vrf INET1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-INET
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!------------------------------------------------------------
+! INTERFACES
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description INET1-TRANSPORT
+ vrf forwarding INET1
+ ip address dhcp
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description R51
+ ip address 10.5.12.52 255.255.255.0
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site5-Local-LAN
+ ip address 10.5.5.52 255.255.255.0
+ ip ospf 1 area 0
+ ip ospf cost 2000
+ no shutdown
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! IP ROUTE TO SETUP TUNNELS
+!--------------------------------------------------------------------
+!
+! DHCP based
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ network 10.0.0.0 0.255.255.255 area 0
+ default-information originate
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.5.0.52
+ bgp log-neighbor-changes
+ neighbor INET-HUB peer-group
+ neighbor INET-HUB remote-as 10
+ neighbor INET-HUB timers 20 60
+ neighbor 192.168.200.12 peer-group INET-HUB
+ neighbor 192.168.200.22 peer-group INET-HUB
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  redistribute ospf 1 route-map REDIST-OSPF-TO-BGP
+  neighbor INET-HUB send-community
+  neighbor INET-HUB next-hop-self all
+  neighbor INET-HUB weight 50000
+  neighbor INET-HUB soft-reconfiguration inbound
+  neighbor 192.168.200.12 activate
+  neighbor 192.168.200.22 activate
+  distance bgp 201 89 89
+ exit-address-family
+!
+ip bgp-community new-format
+!
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description Set a route tag to identify routes redistributed from BGP
+ set tag 1
+!
+!
+route-map REDIST-OSPF-TO-BGP deny 10
+ description Block all routes redistributed from BGP
+ match tag 1
+!
+route-map REDIST-OSPF-TO-BGP permit 20
+ description Redistribute all other traffic
+ match route-type internal
+ match route-type external type-1
+ match route-type external type-2
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec srs sh run | sec
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="Spoke31" type="SIMPLE" subtype="IOSv" location="242,546" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE3
+! SINGLE CPE BRANCH
+! Single IWAN Router Sites - Directly Attached Network
+! MC/BR
+!------------------------------------------------------------
+!
+hostname R31-Site3-Spoke
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition INET1
+ !
+ address-family ipv4
+ exit-address-family
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master local
+  master branch
+   source-interface Loopback0
+   hub 10.1.0.10
+!
+!
+!
+!--------------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!--------------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-INET
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO123
+ !
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-INET
+ match fvrf INET1
+ match identity remote address 0.0.0.0
+ authentication local pre-share
+ authentication remote pre-share
+ keyring local DMVPN-KEYRING-INET
+ dpd 40 5 on-demand
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0
+ authentication local pre-share
+ authentication remote pre-share
+ keyring local DMVPN-KEYRING-MPLS
+ dpd 40 5 on-demand
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-INET
+ set transform-set AES256/SHA/TRANSPORT
+ set ikev2-profile DMVPN-IKE-PROFILE-INET
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!
+!
+!
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.3.0.31 255.255.255.255
+ ip ospf 1 area 0
+!
+!
+!------------------------------------------------------------
+! TUNNELS
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 400
+ ip address 192.168.100.31 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.100.11 nbma 172.16.11.1 multicast
+ ip nhrp nhs 192.168.100.13 nbma 172.16.13.1 multicast
+ ip nhrp nhs 192.168.100.21 nbma 172.16.21.1 multicast
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ if-state nhrp
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+!
+interface Tunnel200
+ description DMVPN-INET
+ bandwidth 400
+ ip address 192.168.200.31 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO2
+ ip nhrp network-id 200
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.200.12 nbma 100.64.12.1 multicast
+ ip nhrp nhs 192.168.200.22 nbma 100.64.22.1 multicast
+ ip nhrp registration no-unique
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ no nhrp route-watch
+ if-state nhrp
+ tunnel source GigabitEthernet0/2
+ tunnel mode gre multipoint
+ tunnel key 200
+ tunnel vrf INET1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-INET
+!
+!
+!------------------------------------------------------------
+! OOB INTERFACE
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ no shutdown
+ ip address dhcp
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!------------------------------------------------------------
+! INTERFACES
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.31.1 255.255.255.252
+ load-interval 30
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description INET1-TRANSPORT
+ vrf forwarding INET1
+ ip address dhcp
+ load-interval 30
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site3-Local-LAN
+ ip address 10.3.3.31 255.255.255.0
+ load-interval 30
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!--------------------------------------------------------------------
+! IP ROUTE TO SETUP TUNNELS
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.31.2
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.3.0.31
+ bgp log-neighbor-changes
+ neighbor MPLS-HUB peer-group
+ neighbor MPLS-HUB remote-as 10
+ neighbor MPLS-HUB timers 20 60
+ neighbor INET-HUB peer-group
+ neighbor INET-HUB remote-as 10
+ neighbor INET-HUB timers 20 60
+ neighbor 192.168.100.11 peer-group MPLS-HUB
+ neighbor 192.168.100.13 peer-group MPLS-HUB
+ neighbor 192.168.100.21 peer-group MPLS-HUB
+ neighbor 192.168.200.12 peer-group INET-HUB
+ neighbor 192.168.200.22 peer-group INET-HUB
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  redistribute connected route-map REDIST-CONNECTED-TO-BGP
+  neighbor MPLS-HUB send-community
+  neighbor MPLS-HUB next-hop-self all
+  neighbor MPLS-HUB weight 50000
+  neighbor MPLS-HUB soft-reconfiguration inbound
+  neighbor MPLS-HUB route-map DC-SELECT in
+  neighbor INET-HUB send-community
+  neighbor INET-HUB next-hop-self all
+  neighbor INET-HUB weight 50000
+  neighbor INET-HUB soft-reconfiguration inbound
+  neighbor INET-HUB route-map DC-SELECT in
+  neighbor 192.168.100.11 activate
+  neighbor 192.168.100.13 activate
+  neighbor 192.168.100.21 activate
+  neighbor 192.168.200.12 activate
+  neighbor 192.168.200.22 activate
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+ip bgp-community new-format
+!
+!
+!--------------------------------------------------------------------
+! CONNECTED TO BGP ROUTE MAPS
+!--------------------------------------------------------------------
+!
+route-map REDIST-CONNECTED-TO-BGP deny 10
+ description Block redistribution of DMVPN Tunnel Interfaces
+ match interface Tunnel100 Tunnel200
+!
+route-map REDIST-CONNECTED-TO-BGP permit 20
+ description Redistribute all other prefixes
+!
+!
+!--------------------------------------------------------------------
+! BGP DC SELECT ROUTE MAPS
+!--------------------------------------------------------------------
+!
+ip community-list standard DC1-MPLS1 permit 10:100
+ip community-list standard DC1-INET1 permit 10:200
+ip community-list standard DC2-MPLS1 permit 10:101
+ip community-list standard DC2-INET1 permit 10:201
+!
+!
+route-map DC-SELECT permit 100
+ match community DC1-MPLS1
+ set local-preference 100000
+!
+route-map DC-SELECT permit 120
+ match community DC1-INET1
+ set local-preference 20000
+!
+route-map DC-SELECT permit 200
+ match community DC2-MPLS1
+ set local-preference 3000
+!
+route-map DC-SELECT permit 220
+ match community DC2-INET1
+ set local-preference 400
+!
+route-map DC-SELECT permit 1000
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+snmp-server chassis-id
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+        <interface id="3" name="GigabitEthernet0/4"/>
+    </node>
+    <node name="Spoke41" type="SIMPLE" subtype="IOSv" location="466,548" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE4
+! SINGLE CPE BRANCH
+! Single IWAN Router Sites - Downstream Routing (OSPF)
+! MC/BR
+!------------------------------------------------------------
+!
+hostname R41-Site4-Spoke
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition INET1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+ !
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master local
+  master branch
+   source-interface Loopback0
+   hub 10.1.0.10
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-INET
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO123
+ !
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-INET
+ match fvrf INET1
+ match identity remote address 0.0.0.0
+ authentication local pre-share
+ authentication remote pre-share
+ keyring local DMVPN-KEYRING-INET
+ dpd 40 5 on-demand
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0
+ authentication local pre-share
+ authentication remote pre-share
+ keyring local DMVPN-KEYRING-MPLS
+ dpd 40 5 on-demand
+!
+!
+!crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-INET
+ set transform-set AES256/SHA/TRANSPORT
+ set ikev2-profile DMVPN-IKE-PROFILE-INET
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.4.0.41 255.255.255.255
+ ip ospf 1 area 0
+!
+!
+!------------------------------------------------------------
+! TUNNELS
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 400
+ ip address 192.168.100.41 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.100.11 nbma 172.16.11.1 multicast
+ ip nhrp nhs 192.168.100.13 nbma 172.16.13.1 multicast
+ ip nhrp nhs 192.168.100.21 nbma 172.16.21.1 multicast
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ if-state nhrp
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+!
+interface Tunnel200
+ description DMVPN-INET
+ bandwidth 400
+ ip address 192.168.200.41 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO2
+ ip nhrp network-id 200
+ ip nhrp holdtime 600
+ ip nhrp nhs 192.168.200.12 nbma 100.64.12.1 multicast
+ ip nhrp nhs 192.168.200.22 nbma 100.64.22.1 multicast
+ ip nhrp registration no-unique
+ ip nhrp shortcut
+ ip tcp adjust-mss 1360
+ load-interval 30
+ no nhrp route-watch
+ if-state nhrp
+ tunnel source GigabitEthernet0/2
+ tunnel mode gre multipoint
+ tunnel key 200
+ tunnel vrf INET1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-INET
+!
+!
+!
+!------------------------------------------------------------
+! OOB INTERFACE
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!------------------------------------------------------------
+! INTERFACES
+!------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.41.1 255.255.255.252
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description INET1-TRANSPORT
+ vrf forwarding INET1
+ ip address dhcp
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+interface GigabitEthernet0/3
+ description Site4-Local-LAN
+ ip address 10.4.4.41 255.255.255.0
+ ip ospf 1 area 0
+ ip ospf network point-to-point
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! IP ROUTE TO SETUP TUNNELS
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.41.2
+!
+!
+!------------------------------------------------------------
+! OSPF
+!------------------------------------------------------------
+!
+router ospf 1
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ network 10.0.0.0 0.255.255.255 area 0
+ default-information originate
+!
+!
+!
+!------------------------------------------------------------
+! BGP
+!------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.4.0.41
+ bgp log-neighbor-changes
+ neighbor MPLS-HUB peer-group
+ neighbor MPLS-HUB remote-as 10
+ neighbor MPLS-HUB timers 20 60
+ neighbor INET-HUB peer-group
+ neighbor INET-HUB remote-as 10
+ neighbor INET-HUB timers 20 60
+ neighbor 192.168.100.11 peer-group MPLS-HUB
+ neighbor 192.168.100.13 peer-group MPLS-HUB
+ neighbor 192.168.100.21 peer-group MPLS-HUB
+ neighbor 192.168.200.12 peer-group INET-HUB
+ neighbor 192.168.200.22 peer-group INET-HUB
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  redistribute ospf 1 route-map REDIST-OSPF-TO-BGP
+  neighbor MPLS-HUB send-community
+  neighbor MPLS-HUB next-hop-self all
+  neighbor MPLS-HUB weight 50000
+  neighbor MPLS-HUB soft-reconfiguration inbound
+  neighbor MPLS-HUB route-map DC-SELECT in
+  neighbor INET-HUB send-community
+  neighbor INET-HUB next-hop-self all
+  neighbor INET-HUB weight 50000
+  neighbor INET-HUB soft-reconfiguration inbound
+  neighbor INET-HUB route-map DC-SELECT in
+  neighbor 192.168.100.11 activate
+  neighbor 192.168.100.13 activate
+  neighbor 192.168.100.21 activate
+  neighbor 192.168.200.12 activate
+  neighbor 192.168.200.22 activate
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+ip bgp-community new-format
+!
+!
+!--------------------------------------------------------------------
+! BGP/OSPF ROUTE MAPS
+!--------------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description Set a route tag to identify routes redistributed from BGP
+ set tag 1
+!
+!
+route-map REDIST-OSPF-TO-BGP deny 10
+ description Block all routes redistributed from BGP
+ match tag 1
+!
+route-map REDIST-OSPF-TO-BGP permit 20
+ description Redistribute all other traffic
+ match route-type internal
+ match route-type external type-1
+ match route-type external type-2
+!
+!
+!--------------------------------------------------------------------
+! BGP DC SELECT ROUTE MAPS
+!--------------------------------------------------------------------
+!
+ip community-list standard DC1-MPLS1 permit 10:100
+ip community-list standard DC1-INET1 permit 10:200
+ip community-list standard DC2-MPLS1 permit 10:101
+ip community-list standard DC2-INET1 permit 10:201
+!
+!
+route-map DC-SELECT permit 100
+ match community DC1-MPLS1
+ set local-preference 3000
+!
+route-map DC-SELECT permit 120
+ match community DC1-INET1
+ set local-preference 400
+!
+route-map DC-SELECT permit 200
+ match community DC2-MPLS1
+ set local-preference 100000
+!
+route-map DC-SELECT permit 220
+ match community DC2-INET1
+ set local-preference 20000
+!
+route-map DC-SELECT permit 1000
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+snmp-server chassis-id
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <node name="SP1" type="SIMPLE" subtype="IOSv" location="798,308" vmImage="IOSv [9a1238f0-eff9-4686-a682-3e3c75945fba]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]" excludeFromLaunch="true">
+        <extensions>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SP DATACENTER
+! SP1 - on INET
+!------------------------------------------------------------
+!
+!
+hostname SP1-INET
+!
+logging buffered 16384
+logging console warnings
+no aaa new-model
+clock timezone CET 1 0
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+cdp timer 5
+cdp holdtime 10
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!------------------------------------------------------------
+! NSO PnP FlexVPN Server
+!------------------------------------------------------------
+!
+crypto ikev2 authorization policy default
+ route set interface
+ route set remote ipv4 0.0.0.0 0.0.0.0
+!                         
+crypto ikev2 profile FLEX-IKEV2-PROFILE
+ match identity remote any
+ identity local fqdn flex.iwan.net
+ authentication local pre-share key cisco123
+ authentication remote pre-share key cisco123
+ dpd 30 5 on-demand
+ aaa authorization group psk list default default
+ virtual-template 1
+!  
+crypto ipsec transform-set MGMT-ENCR esp-aes esp-sha-hmac 
+ mode transport
+!       
+crypto ipsec profile FLEX-IPSEC-PROFILE
+ set transform-set MGMT-ENCR 
+ set ikev2-profile FLEX-IKEV2-PROFILE
+!
+!
+!
+interface Virtual-Template1 type tunnel
+ ip unnumbered loopback0
+ tunnel protection ipsec profile FLEX-IPSEC-PROFILE
+!
+!
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACK
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 11.1.1.1 255.255.255.255
+ ip ospf 1 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ ip policy route-map INET-INTERNAL 
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description INET01-TRANSPORT
+ bandwidth 1000000
+ ip address 100.64.1.1 255.255.255.252
+ delay 1
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-LAN
+ bandwidth 1000000
+ ip address 10.1.112.12 255.255.255.0
+ ip ospf 1 area 0
+ ip ospf network point-to-point
+ delay 1
+ load-interval 30
+ no shutdown
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! Gateway between FLAT network and VIRL
+!--------------------------------------------------------------------
+!
+ip route 172.16.1.0 255.255.255.0 GigabitEthernet0/0 dhcp 10
+!
+!
+ip access-list extended INTERNAL-NETS
+ permit ip any 100.0.0.0 0.255.255.255
+ permit ip any 11.0.0.0 0.255.255.255
+!
+!
+route-map INET-INTERNAL permit 10
+ match ip address INTERNAL-NETS
+ set global
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ redistribute connected subnets
+!
+!
+!--------------------------------------------------------------------
+! DEFAULT ROUTE TO INET BRs
+!--------------------------------------------------------------------
+!
+ip route 0.0.0.0 0.0.0.0 100.64.1.2
+!
+!
+!----------------------------------------------------
+! Routing traffic outbound to the management interface
+! From global to Management VRF
+!----------------------------------------------------
+!
+interface GigabitEthernet0/0
+ ip address dhcp
+!
+!
+ip route 172.16.1.0 255.255.255.0 GigabitEthernet0/0 dhcp 10
+!
+!
+!----------------------------------------------------------------
+! Routing for return traffic inbound from the management interface
+! From Management interface to Global.
+! Match Lab Subnets and route map to global
+!----------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ ip policy route-map INET-INTERNAL 
+!
+!
+route-map INET-INTERNAL permit 10
+ match ip address INTERNAL-NETS
+ set global
+!
+ip access-list extended INTERNAL-NETS
+ permit ip any 100.0.0.0 0.255.255.255
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+    </node>
+    <node name="R10" type="SIMPLE" subtype="IOSv" location="183,69" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!---------------------------------------------
+! SITE1
+! R10 - Hub MC
+!---------------------------------------------
+! 
+hostname R10-DC1-MC
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  master hub
+   source-interface Loopback0
+   enterprise-prefix  prefix-list ENTERPRISE_PREFIX
+   site-prefixes prefix-list SITE_PREFIX
+   monitor-interval 4 dscp ef
+   monitor-interval 4 dscp af41
+   monitor-interval 4 dscp cs4
+   monitor-interval 4 dscp af21
+   load-balance
+   advanced
+    channel-unreachable-timer 4
+   collector 10.151.1.95 port 2055
+   class VOICE sequence 10
+    match dscp ef policy custom
+     priority 2 loss threshold 5
+     priority 1 one-way-delay threshold 150
+    path-preference MPLS fallback INET
+   class VIDEO sequence 20
+    match dscp af41 policy custom
+     priority 2 loss threshold 5
+     priority 1 one-way-delay threshold 150
+    match dscp cs4 policy custom
+     priority 2 loss threshold 5
+     priority 1 one-way-delay threshold 150
+    path-preference MPLS fallback INET
+   class CRITICAL sequence 30
+    match dscp af21 policy custom
+     priority 2 loss threshold 10
+     priority 1 one-way-delay threshold 600
+    path-preference MPLS fallback INET
+  !
+!
+ip prefix-list ENTERPRISE_PREFIX seq 10 permit 10.0.0.0/8
+ip prefix-list SITE_PREFIX seq 10 permit 10.1.0.0/16
+ip prefix-list SITE_PREFIX seq 20 permit 10.10.0.0/16
+!
+!
+!
+!--------------------------------------------------------------------
+! FLEXIBLE NETFLOW 
+!--------------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! LOOPBACKS
+!------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.1.0.10 255.255.255.255
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ duplex auto
+ speed auto
+ media-type rj45
+ no shutdown
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description Core1
+ ip address 10.1.110.10 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+!
+!
+!--------------------------------------------------------------------
+! OSPF 
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.1.0.10
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!------------------------------------------------------------
+! ALIAS
+!------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+    </node>
+    <node name="R20" type="SIMPLE" subtype="IOSv" location="772,61" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]" ipv4="192.168.0.9">
+        <extensions>
+            <entry key="config" type="String">! IOS Config generated on 2017-08-02 02:32
+! by autonetkit_0.23.5
+!
+hostname R20
+boot-start-marker
+boot-end-marker
+!
+vrf definition Mgmt-intf
+!
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+no aaa new-model
+!
+!
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+!
+service timestamps debug datetime msec
+service timestamps log datetime msec
+no service password-encryption
+no service config
+enable password cisco
+ip classless
+ip subnet-zero
+no ip domain lookup
+ip domain name virl.info
+crypto key generate rsa modulus 768
+ip ssh server algorithm authentication password
+username cisco privilege 15 secret cisco
+line vty 0 4
+ transport input ssh telnet
+ exec-timeout 720 0
+ password cisco
+ login local
+line con 0
+ password cisco
+!
+no cdp run
+!
+!
+interface Loopback0
+  description Loopback
+  ip address 192.168.0.9 255.255.255.255
+!
+interface GigabitEthernet0/0
+  description OOB Management
+  vrf forwarding Mgmt-intf
+  ! Configured on launch
+  no ip address
+  duplex full
+  speed auto
+  no shutdown
+!
+interface GigabitEthernet0/1
+  description to CoreSwitch2
+  ip address 10.0.0.94 255.255.255.252
+  ip ospf cost 1
+  duplex full
+  speed auto
+  no shutdown
+!
+!
+!
+router ospf 1
+  network 192.168.0.9 0.0.0.0 area 0
+  log-adjacency-changes
+  passive-interface Loopback0
+  network 10.0.0.92 0.0.0.3 area 0
+!
+!
+router bgp 1
+  bgp router-id 192.168.0.9
+  no synchronization
+! ibgp
+  ! ibgp peers
+  !
+  neighbor 192.168.0.6 remote-as 1
+  neighbor 192.168.0.6 description iBGP peer BR11
+  neighbor 192.168.0.6 update-source Loopback0
+  !
+  neighbor 192.168.0.7 remote-as 1
+  neighbor 192.168.0.7 description iBGP peer BR12
+  neighbor 192.168.0.7 update-source Loopback0
+  !
+  neighbor 192.168.0.8 remote-as 1
+  neighbor 192.168.0.8 description iBGP peer BR13
+  neighbor 192.168.0.8 update-source Loopback0
+  !
+  neighbor 192.168.0.10 remote-as 1
+  neighbor 192.168.0.10 description iBGP peer BR21
+  neighbor 192.168.0.10 update-source Loopback0
+  !
+  neighbor 192.168.0.11 remote-as 1
+  neighbor 192.168.0.11 description iBGP peer BR22
+  neighbor 192.168.0.11 update-source Loopback0
+  !
+  neighbor 192.168.0.3 remote-as 1
+  neighbor 192.168.0.3 description iBGP peer CoreSwitch1
+  neighbor 192.168.0.3 update-source Loopback0
+  !
+  neighbor 192.168.0.4 remote-as 1
+  neighbor 192.168.0.4 description iBGP peer CoreSwitch2
+  neighbor 192.168.0.4 update-source Loopback0
+  !
+  neighbor 192.168.0.17 remote-as 1
+  neighbor 192.168.0.17 description iBGP peer INET
+  neighbor 192.168.0.17 update-source Loopback0
+  !
+  neighbor 192.168.0.18 remote-as 1
+  neighbor 192.168.0.18 description iBGP peer MPLS
+  neighbor 192.168.0.18 update-source Loopback0
+  !
+  neighbor 192.168.0.1 remote-as 1
+  neighbor 192.168.0.1 description iBGP peer R1-Multibranch
+  neighbor 192.168.0.1 update-source Loopback0
+  !
+  neighbor 192.168.0.5 remote-as 1
+  neighbor 192.168.0.5 description iBGP peer R10
+  neighbor 192.168.0.5 update-source Loopback0
+  !
+  neighbor 192.168.0.2 remote-as 1
+  neighbor 192.168.0.2 description iBGP peer SP1
+  neighbor 192.168.0.2 update-source Loopback0
+  !
+  neighbor 192.168.0.12 remote-as 1
+  neighbor 192.168.0.12 description iBGP peer Spoke31
+  neighbor 192.168.0.12 update-source Loopback0
+  !
+  neighbor 192.168.0.13 remote-as 1
+  neighbor 192.168.0.13 description iBGP peer Spoke41
+  neighbor 192.168.0.13 update-source Loopback0
+  !
+  neighbor 192.168.0.14 remote-as 1
+  neighbor 192.168.0.14 description iBGP peer Spoke51
+  neighbor 192.168.0.14 update-source Loopback0
+  !
+  neighbor 192.168.0.15 remote-as 1
+  neighbor 192.168.0.15 description iBGP peer Spoke52
+  neighbor 192.168.0.15 update-source Loopback0
+  !
+  neighbor 192.168.0.16 remote-as 1
+  neighbor 192.168.0.16 description iBGP peer switch
+  neighbor 192.168.0.16 update-source Loopback0
+!
+!
+ !
+ address-family ipv4
+  network 192.168.0.9 mask 255.255.255.255
+  neighbor 192.168.0.6 activate
+  neighbor 192.168.0.7 activate
+  neighbor 192.168.0.8 activate
+  neighbor 192.168.0.10 activate
+  neighbor 192.168.0.11 activate
+  neighbor 192.168.0.3 activate
+  neighbor 192.168.0.4 activate
+  neighbor 192.168.0.17 activate
+  neighbor 192.168.0.18 activate
+  neighbor 192.168.0.1 activate
+  neighbor 192.168.0.5 activate
+  neighbor 192.168.0.2 activate
+  neighbor 192.168.0.12 activate
+  neighbor 192.168.0.13 activate
+  neighbor 192.168.0.14 activate
+  neighbor 192.168.0.15 activate
+  neighbor 192.168.0.16 activate
+ exit-address-family
+!
+!
+!
+end</entry>
+            <entry key="AutoNetkit.mgmt_ip" type="string"></entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1" ipv4="10.0.0.94" netPrefixLenV4="30"/>
+    </node>
+    <node name="BR13" type="SIMPLE" subtype="IOSv" location="178,216" vmImage="IOSv-15.6.2T [b519dda5-a56c-481b-af21-e62d57f8e04e]" vmFlavor="IOSv [323cc4af-77ea-48d6-b90e-a2c9ab674988]">
+        <extensions>
+            <entry key="Auto-generate config" type="Boolean">false</entry>
+            <entry key="config" type="String">!------------------------------------------------------------
+! SITE1
+! R13 - BR on MPLS
+!------------------------------------------------------------
+!
+hostname R13-DC1
+!
+!
+!
+!------------------------------------------------------------
+! MISC
+!------------------------------------------------------------
+!
+clock timezone CET 1 0
+!
+service tcp-keepalives-in
+service tcp-keepalives-out
+service timestamps debug datetime msec localtime
+service timestamps log datetime msec localtime
+service password-encryption
+!
+no ip domain lookup
+ip cef
+ipv6 unicast-routing
+ipv6 cef
+!
+cdp timer 5
+cdp holdtime 10
+!
+no service-routing capabilities-manager
+!
+!
+!
+!------------------------------------------------------------
+! USERS
+!------------------------------------------------------------
+!
+username cisco privilege 15 secret 0 cisco
+!
+!
+!
+!------------------------------------------------------------
+! MANAGEMENT VRF
+!------------------------------------------------------------
+!
+vrf definition Mgmt-intf
+ !
+ address-family ipv4
+ exit-address-family
+ !
+ address-family ipv6
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! FRONT VRF
+!------------------------------------------------------------
+!
+vrf definition MPLS1
+ !
+ address-family ipv4
+ exit-address-family
+!
+!
+!------------------------------------------------------------
+! DOMAIN
+!------------------------------------------------------------
+!
+domain IWAN
+ vrf default
+  border
+   source-interface Loopback0
+   master 10.1.0.10
+!
+!
+!
+!------------------------------------------------------------
+! FLEXIBLE NETFLOW
+!------------------------------------------------------------
+!
+flow record RECORD-STATS
+ match ipv4 dscp
+ match ipv4 protocol
+ match ipv4 source address
+ match ipv4 destination address
+ match transport source-port
+ match transport destination-port
+ match interface input
+ match flow direction
+ collect routing next-hop address ipv4
+ collect counter bytes
+!
+flow monitor MONITOR-STATS
+ cache timeout inactive 60
+ cache timeout active 60
+ cache timeout update 1
+ record RECORD-STATS
+!
+!
+!
+!------------------------------------------------------------
+! KEYRING 
+! Use pre-share key here
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-1
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key c1sco123
+ !
+!
+!
+!------------------------------------------------------------
+! CRYPTO
+!------------------------------------------------------------
+!
+crypto ikev2 keyring DMVPN-KEYRING-MPLS
+ peer ANY
+  address 0.0.0.0 0.0.0.0
+  pre-shared-key CISCO456
+ !
+!
+!
+crypto ikev2 profile DMVPN-IKE-PROFILE-MPLS
+ match fvrf MPLS1
+ match identity remote address 0.0.0.0 
+ authentication remote pre-share
+ authentication local pre-share
+ keyring local DMVPN-KEYRING-MPLS
+!
+!
+! crypto ipsec security-association replay disable
+crypto ipsec security-association replay window-size 512
+!
+crypto ipsec transform-set AES256/SHA/TRANSPORT esp-aes 256 esp-sha-hmac 
+ mode transport
+!
+crypto ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ set transform-set AES256/SHA/TRANSPORT 
+ set ikev2-profile DMVPN-IKE-PROFILE-MPLS
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! LOOPBACK
+!--------------------------------------------------------------------
+!
+interface Loopback0
+ ip address 10.1.0.13 255.255.255.255
+!
+!
+!------------------------------------------------------------
+! DMVPN TUNNEL
+!------------------------------------------------------------
+!
+interface Tunnel100
+ description DMVPN-MPLS
+ bandwidth 1000
+ ip address 192.168.100.13 255.255.255.0
+ no ip redirects
+ ip mtu 1400
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ ip nhrp authentication CISCO
+ ip nhrp map multicast dynamic
+ ip nhrp network-id 100
+ ip nhrp holdtime 600
+ ip nhrp shortcut
+ ip nhrp redirect
+ ip tcp adjust-mss 1360
+ load-interval 30
+ tunnel source GigabitEthernet0/1
+ tunnel mode gre multipoint
+ tunnel key 100
+ tunnel vrf MPLS1
+ tunnel protection ipsec profile DMVPN-IPSEC-PROFILE-MPLS
+ domain IWAN path MPLS path-id 3
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! OOB INTERFACE
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/0
+ description OOB Management
+ vrf forwarding Mgmt-intf
+ ip address dhcp
+ no shutdown
+ duplex auto
+ speed auto
+ media-type rj45
+!
+!
+!
+!
+!--------------------------------------------------------------------
+! INTERFACES
+!--------------------------------------------------------------------
+!
+interface GigabitEthernet0/1
+ description MPLS1-TRANSPORT
+ vrf forwarding MPLS1
+ ip address 172.16.13.1 255.255.255.252
+ load-interval 30
+ no shutdown
+!
+interface GigabitEthernet0/2
+ description Site-LAN Core
+ ip address 10.1.113.13 255.255.255.0
+ ip ospf network point-to-point
+ load-interval 30
+ ip flow monitor MONITOR-STATS input
+ ip flow monitor MONITOR-STATS output
+ no shutdown
+!
+!
+!--------------------------------------------------------------------
+! IP route to build DMVPN Tunnel
+!--------------------------------------------------------------------
+!
+ip route vrf MPLS1 0.0.0.0 0.0.0.0 172.16.13.2
+!
+!
+!--------------------------------------------------------------------
+! OSPF
+!--------------------------------------------------------------------
+!
+router ospf 1
+ router-id 10.1.0.13
+ redistribute bgp 10 subnets route-map REDIST-BGP-TO-OSPF
+ passive-interface default
+ no passive-interface GigabitEthernet0/2
+ no passive-interface GigabitEthernet0/3
+ network 10.0.0.0 0.255.255.255 area 0
+!
+!
+!
+!--------------------------------------------------------------------
+! OBJECT TRACKING
+! Track Core Switch loopback address
+! Static route based on Object Tracking
+!--------------------------------------------------------------------
+!
+track 1 ip route 10.1.0.100 255.255.255.255 reachability
+!
+ip route 10.1.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.10.0.0 255.255.0.0 Null0 254 track 1
+ip route 10.0.0.0 255.0.0.0 Null0 254
+!
+!
+!
+!--------------------------------------------------------------------
+! BGP
+!--------------------------------------------------------------------
+!
+router bgp 10
+ bgp router-id 10.1.0.14
+ bgp log-neighbor-changes
+ bgp listen range 192.168.100.0/24 peer-group MPLS1-SPOKES
+ neighbor MPLS1-SPOKES peer-group
+ neighbor MPLS1-SPOKES remote-as 10
+ neighbor MPLS1-SPOKES timers 20 60
+ !
+ address-family ipv4
+  bgp redistribute-internal
+  network 0.0.0.0
+  network 10.1.0.0 mask 255.255.0.0
+  network 10.10.0.0 mask 255.255.0.0
+  network 10.1.0.10 mask 255.255.255.255
+  network 10.0.0.0
+  neighbor MPLS1-SPOKES activate
+  neighbor MPLS1-SPOKES send-community
+  neighbor MPLS1-SPOKES next-hop-self
+  neighbor MPLS1-SPOKES route-reflector-client
+  neighbor MPLS1-SPOKES weight 50000
+  neighbor MPLS1-SPOKES soft-reconfiguration inbound
+  neighbor MPLS1-SPOKES route-map MPLS1-IN in
+  neighbor MPLS1-SPOKES route-map MPLS1-OUT out
+  distance bgp 201 89 89
+ exit-address-family
+!
+!
+!
+!------------------------------------------------------------
+! BGP ROUTE MAP
+!------------------------------------------------------------
+!
+ip bgp-community new-format
+!
+ip community-list standard POP1-SPOKES permit 10:10
+ip community-list standard POP2-SPOKES permit 10:20
+!
+ip prefix-list DEFAULT-ROUTE seq 10 permit 0.0.0.0/0
+!
+ip prefix-list ENTERPRISE-PREFIX seq 10 permit 10.0.0.0/8
+!
+ip prefix-list LOCALDC-PREFIX seq 10 permit 10.1.0.0/16
+ip prefix-list LOCALDC-PREFIX seq 20 permit 10.10.0.0/16
+!
+ip prefix-list LOCALMCLOOPBACK seq 10 permit 10.1.0.10/32
+!
+ip prefix-list TUNNEL-DMVPN seq 10 permit 192.100.0.0/16
+ip prefix-list TUNNEL-DMVPN seq 20 permit 192.200.0.0/16
+!
+!
+route-map MPLS1-IN deny 10
+ description All Blocked Prefixes to come IN on BGP
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK TUNNEL-DMVPN
+!
+route-map MPLS1-IN permit 1000
+ description Allow Everything Else
+!
+route-map MPLS1-OUT permit 10
+ description All Allowed Prefixes to Go OUT on BGP to Spokes
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX LOCALMCLOOPBACK
+ set local-preference 100001
+ set community 10:100
+!
+!
+!
+!------------------------------------------------------------
+! BGP to OSPF REDISTRIBUTION ROUTE-MAP
+!------------------------------------------------------------
+!
+route-map REDIST-BGP-TO-OSPF permit 10
+ description This Route-Map Entry is Solution Testbed Specific
+ match community POP2-SPOKES
+ set metric 2000
+ set metric-type type-1
+!
+route-map REDIST-BGP-TO-OSPF deny 20
+ description Block Null routes to be distributed from BGP to OSPF
+ match ip address prefix-list DEFAULT-ROUTE ENTERPRISE-PREFIX LOCALDC-PREFIX
+!
+route-map REDIST-BGP-TO-OSPF permit 1000
+ set metric 1000
+ set metric-type type-1
+!
+!
+!
+!--------------------------------------------------------------------
+! SNMP
+!--------------------------------------------------------------------
+!
+snmp-server community public RO
+snmp-server community private RW
+snmp-server ifindex persist
+!
+!
+!--------------------------------------------------------------------
+! ALIAS
+!--------------------------------------------------------------------
+!
+alias exec ship show ip int br | ex una
+alias exec desc show int desc | ex admin
+alias exec sri show run | inc
+alias exec srb show run | beg
+alias exec shflow sh flow monitor MONITOR-STATS cache format table
+!
+alias exec shm sh domain IWAN master
+alias exec shmtc show domain IWAN master traffic-classes
+alias exec shmtcs show domain IWAN master traffic-classes summ
+alias exec shmc show domain IWAN master channel | begin Id: 
+alias exec shb sh domain IWAN border 
+!
+!
+!
+!--------------------------------------------------------------------
+! NTP
+!--------------------------------------------------------------------
+!
+ntp server 10.1.0.10
+!
+!
+!--------------------------------------------------------------------
+! CONSOLES
+!--------------------------------------------------------------------
+!
+line con 0
+ exec-timeout 0 0
+ privilege level 15
+ logging synchronous
+line aux 0
+line vty 0 4
+ login
+ transport input none
+!
+no scheduler allocate
+!
+end</entry>
+        </extensions>
+        <interface id="0" name="GigabitEthernet0/1"/>
+        <interface id="1" name="GigabitEthernet0/2"/>
+        <interface id="2" name="GigabitEthernet0/3"/>
+    </node>
+    <annotations>
+        <rect x="517" y="29" radius="10" width="275" height="177" fill="FFFFFF" stroke-opacity="0.8" stroke-width="3" stroke-pattern="dash"/>
+        <rect x="148" y="30" radius="10" width="275" height="177" fill="FFFFFF" stroke-opacity="0.8" stroke-width="3" stroke-pattern="dash"/>
+        <rect x="405" y="6" radius="10" width="125" height="62" fill="FFFFFF" stroke-opacity="0.7" stroke="C0C0C0" stroke-width="3" stroke-pattern="dot"/>
+        <text x="431" y="14" font-size="9" text-anchor="middle">Servers
+10.10.100.10
+10.10.100.20</text>
+        <text x="436" y="117" font-size="9" text-anchor="middle">10.10.20.0/24</text>
+        <text x="268" y="34" font-size="9" text-anchor="middle" bold="true">Site1</text>
+        <text x="640" y="33" font-size="9" text-anchor="middle" bold="true">Site2</text>
+        <text x="245" y="613" font-size="9" text-anchor="middle">10.3.3.0/24</text>
+        <text x="400" y="594" font-size="9" text-anchor="middle">10.3.4.0/24</text>
+        <text x="567" y="604" font-size="9" text-anchor="middle">10.3.5.0/24</text>
+        <text x="243" y="355" font-size="9" text-anchor="middle" fill="0000FF">Tu100 
+192.168.100.0/24</text>
+        <text x="645" y="354" font-size="9" text-anchor="middle" fill="008000">Tu200 
+192.168.200.0/24</text>
+        <text x="892" y="217" font-size="18">IWAN BGP CVD 2.1.1&#xD;
+Network Statements with Object Tracking&#xD;
+&#xD;
+DC selected on branches based on incoming community.&#xD;
+&#xD;
+    Site3 prefers Site1&#xD;
+    Site4 prefers Site2.&#xD;
+    Site5 uses the LP sent from Hubs.&#xD;
+&#xD;
+Command Reference&#xD;
+Multi-branch: Ping vrf Site3 10.1.100.10&#xD;
+Spoke: Ping 10.1.100.10 source Loopback0</text>
+        <text x="398" y="179" font-size="9" text-anchor="middle">.12</text>
+        <text x="268" y="188" font-size="9" text-anchor="middle">.11</text>
+        <text x="151" y="181" font-size="9" text-anchor="middle">.13</text>
+        <text x="544" y="184" font-size="9" text-anchor="middle">.21</text>
+        <text x="756" y="187" font-size="9" text-anchor="middle">.22</text>
+    </annotations>
+    <connection dst="/virl:topology/virl:node[4]/virl:interface[3]" src="/virl:topology/virl:node[1]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[5]/virl:interface[2]" src="/virl:topology/virl:node[7]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[5]/virl:interface[3]" src="/virl:topology/virl:node[6]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[7]/virl:interface[3]" src="/virl:topology/virl:node[6]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[2]/virl:interface[2]" src="/virl:topology/virl:node[9]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[10]/virl:interface[2]" src="/virl:topology/virl:node[9]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[9]/virl:interface[3]" src="/virl:topology/virl:node[8]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[10]/virl:interface[3]" src="/virl:topology/virl:node[8]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[6]/virl:interface[3]" src="/virl:topology/virl:node[8]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[2]/virl:interface[5]" src="/virl:topology/virl:node[11]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[11]/virl:interface[2]" src="/virl:topology/virl:node[12]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[4]/virl:interface[1]" src="/virl:topology/virl:node[11]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[4]/virl:interface[2]" src="/virl:topology/virl:node[12]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[12]/virl:interface[1]" src="/virl:topology/virl:node[3]/virl:interface[5]"/>
+    <connection dst="/virl:topology/virl:node[7]/virl:interface[1]" src="/virl:topology/virl:node[3]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[10]/virl:interface[1]" src="/virl:topology/virl:node[3]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[2]/virl:interface[1]" src="/virl:topology/virl:node[5]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[13]/virl:interface[1]" src="/virl:topology/virl:node[2]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[3]/virl:interface[3]" src="/virl:topology/virl:node[13]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[1]/virl:interface[1]" src="/virl:topology/virl:node[13]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[2]/virl:interface[4]" src="/virl:topology/virl:node[14]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[3]/virl:interface[4]" src="/virl:topology/virl:node[14]/virl:interface[2]"/>
+    <connection dst="/virl:topology/virl:node[1]/virl:interface[2]" src="/virl:topology/virl:node[14]/virl:interface[3]"/>
+    <connection dst="/virl:topology/virl:node[3]/virl:interface[6]" src="/virl:topology/virl:node[15]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[6]/virl:interface[4]" src="/virl:topology/virl:node[16]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[8]/virl:interface[4]" src="/virl:topology/virl:node[17]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[2]/virl:interface[6]" src="/virl:topology/virl:node[18]/virl:interface[1]"/>
+    <connection dst="/virl:topology/virl:node[18]/virl:interface[2]" src="/virl:topology/virl:node[6]/virl:interface[5]"/>
+</topology>
